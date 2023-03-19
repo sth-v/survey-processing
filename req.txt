@@ -1,0 +1,10 @@
+docker
+rhino3dm
+jinja2
+python-dotenv
+requests>=2.28.*
+rpyc
+pyyaml>=5.4.*
+pandas
+numpy
+scipy
