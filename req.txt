@@ -1,5 +1,4 @@
 docker
-rhino3dm
 jinja2
 python-dotenv
 requests>=2.28.*
@@ -8,3 +7,5 @@ pyyaml>=5.4.*
 pandas
 numpy
 scipy
+git+https://github.com/sth-v/cxm_boto_client.git
+git+https://github.com/contextmachine/cxmdata.git

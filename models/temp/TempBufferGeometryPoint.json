@@ -1,0 +1,24 @@
+{
+    "uuid": {{ self.uuid }},
+    "type": "BufferGeometry",
+    "data": {
+        "attributes": {
+            "position": {
+                "itemSize": 3,
+                "type": "Float32Array",
+                "array": {{ self.xyz }},
+                "normalized": false
+            },
+            "color": {
+                "itemSize": 3,
+                "type": "Float32Array",
+                "array": {{ self.xyz }},
+                "normalized": false
+            }
+        },
+        "boundingSphere": {
+            "center": {{ self.xyz }},
+            "radius": 0
+        }
+    }
+}

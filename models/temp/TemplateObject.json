@@ -1,0 +1,10 @@
+{
+    "uuid": "bf788959-f039-41e1-b48b-0702b822b9bf",
+    "type": "Points",
+    "name": "2.1",
+    "userData": {},
+    "layers": 1,
+    "matrix": [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],
+    "geometry": {},
+    "material": "cb806ba5-a7d8-4b02-b578-4fbde75a8fcb"
+}
