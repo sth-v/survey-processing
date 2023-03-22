@@ -1,0 +1,22 @@
+
+
+
+
+
+
+
+
+
+
+
+
+query MyQuery($_target_type: String = "") {
+  threejs_types_by_pk(value: $_target_type) {
+    objects(where: {type: {_eq: $_target_type}}) {
+      children
+      name
+      type
+      uuid
+    }
+  }
+}

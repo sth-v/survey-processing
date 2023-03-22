@@ -1,39 +1,109 @@
 import abc
 import collections
-import os
-import uuid
 
-import threading
+from abc import ABCMeta, abstractmethod
+
 import compas
 from compas import geometry
 import json
 import numpy as np
 import rhino3dm
-from OCC.Core import gp
 from OCC.Core.gp import gp_Pnt
 from mmcore.baseitems import Matchable, Entity
-from mmcore.baseitems.descriptors import UserData, UserDataProperties, JsonView
-import jinja2
+from mmcore.baseitems.descriptors import UserDataProperties, JsonView
 
 from jinja2.nativetypes import NativeEnvironment
+from mmcore.gql import client as graphql_client
+from mmcore.baseitems.descriptors import NoDataDescriptor
+
+
+class QueryDescriptor(NoDataDescriptor):
+    _source = {}
+
+    @property
+    def query(self):
+        return graphql_client.GQLReducedFileBasedQuery(**self._source)
+
+    @query.setter
+    def query(self, v):
+        self._source = v
+
+    @abc.abstractmethod
+    def __get__(self, instance, owner):
+        ...
+
+
+class FileQueryDescriptor(QueryDescriptor):
+    def __init__(self, path):
+        super().__init__()
+        self.query = {"path": path}
+
+
+class ThreeTypeObjects(FileQueryDescriptor):
+    def __get__(self, instance, owner):
+        if instance is None:
+
+            return self.query(variables={"_target_type": owner.type})
+        else:
+            return self.query(variables={"_target_type": instance.type})
+
+
+class ThreeType(QueryDescriptor):
+    type = ""
+    objects = ThreeTypeObjects("temp/threejs_type_objects.graphql")
+
+    def __set_name__(self, owner, name):
+        super().__set_name__(owner, name)
+        self.type = name.capitalize()
+
+    def __get__(self, instance, owner):
+        return self
+
 
 class BufferGeometry(Matchable):
     def __set__(self, instance, value):
         ...
+
     def __get__(self, instance, owner):
         ...
 
-    def to_object3d(self):
+    def _object3d(self, instance):
         return {
             "uuid": "bf788959-f039-41e1-b48b-0702b822b9bf",
-            "type": "Points",
-            "name": "2.1",
-            "userData": {},
+            "type": self._object_type(instance),
+            "name": self._name(instance.name),
+            "userData": self._userdata(instance),
             "layers": 1,
-            "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-            "geometry": {},
-            "material": "cb806ba5-a7d8-4b02-b578-4fbde75a8fcb"
+            "matrix": self._matrix(instance),
+            "geometry": self._geometry_uuid(instance),
+            "material": self._material_uuid(instance),
         }
+
+    def _matrix(self, instance):
+        if not hasattr(instance, "matrix"):
+            return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+
+    def _geometry_uuid(self, instance):
+        if not hasattr(instance, "matrix"):
+            return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+
+    def _material_uuid(self, instance):
+        if not hasattr(instance, "matrix"):
+            return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+
+    def _userdata(self, instance):
+        return instance.userdata
+
+    def _geometry(self, instance):
+        return instance.name
+
+    def _name(self, instance):
+        return instance.name
+
+    def _object_type(self, instance):
+        return
+
+
 def is_integer_char(char):
     return char in "0123456789"
 
@@ -129,9 +199,11 @@ class Point(Matchable):
         with open(template, "r") as fl:
             data = fl.read()
         return data
+
     @property
     def material(self):
         return
+
     def geometry(self):
         return {
             "uuid": self.uuid,
@@ -142,13 +214,13 @@ class Point(Matchable):
                         "itemSize": 3,
                         "type": "Float32Array",
                         "array": self.xyz,
-                        "normalized": false
+                        "normalized": False
                     },
                     "color": {
                         "itemSize": 3,
                         "type": "Float32Array",
                         "array": self.xyz,
-                        "normalized": false
+                        "normalized": False
                     }
                 },
                 "boundingSphere": {
@@ -163,11 +235,11 @@ class Point(Matchable):
         return {
             "uuid": "bf788959-f039-41e1-b48b-0702b822b9bf",
             "type": "Points",
-            "name": "2.1",
-            "userData": {},
+            "name": self.tag,
+            "userData": self.userdata,
             "layers": 1,
             "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-            "geometry": {},
+            "geometry": self.geometry()["uuid"],
             "material": "cb806ba5-a7d8-4b02-b578-4fbde75a8fcb"
         }
 
@@ -175,7 +247,7 @@ class Point(Matchable):
 class NamedPoint(Point, Entity):
     __match_args__ = "x", "y", "z"
     json = JsonView("x", "y", "z", "userdata")
-    properties = UserDataProperties("tag", "pref", "index", "user_tag")
+    properties = UserDataProperties("tag")
 
     def __init__(self, x=None, y=None, z=0, **kwargs):
         super().__init__(x, y, z=z)
@@ -192,8 +264,6 @@ class NamedPoint(Point, Entity):
         return json.dumps(dct)
 
 
-
-
 class GeodesPoint(NamedPoint):
     __match_args__ = "x", "y", "z"
 
@@ -201,8 +271,8 @@ class GeodesPoint(NamedPoint):
 from mmcore.collections.multi_description import ES
 
 
-class SokkiaSDLFormat(ES):
-    encoding: str = "latin-1"
+class SurveyFormat(ES, metaclass=ABCMeta):
+    encoding: str = "utf-8"
 
     class Line(str):
         def __new__(cls, *args, **kw):
@@ -225,8 +295,58 @@ class SokkiaSDLFormat(ES):
 
             return words
 
+        @abstractmethod
         def parse(self):
+            pass
 
+        @property
+        def point(self):
+            return NamedPoint(*self.data, tag=self.tag)
+
+    def __init__(self, text):
+
+        self.header = []
+        self.lines = []
+        self.text = text
+        self.parse()
+
+        super().__init__(seq=self.lines)
+
+    @classmethod
+    def from_file_path(cls, path):
+        with open(path, "rb") as fl:
+            return cls(fl.read().decode(cls.encoding))
+
+    @abstractmethod
+    def parse(self):
+        pass
+
+    def colorise(self):
+        collections.Counter(self["tag"])
+
+    def dump3dm(self):
+        model = rhino3dm.File3dm()
+        for pt in self["point"]:
+            attrs = rhino3dm.ObjectAttributes()
+            attrs.Name = pt.tag
+
+            for k, v in pt.userdata["properties"].items():
+                attrs.SetUserString(k, v)
+
+            model.Objects.Add(rhino3dm.Point(rhino3dm.Point3d(pt.x, pt.y, pt.z)), attrs)
+        return model
+
+    @property
+    def pts(self):
+        return list(self["point"])
+
+
+
+class SokkiaSDLFormat(SurveyFormat):
+    class Line(SurveyFormat.Line):
+
+
+        def parse(self):
             self.raw_tag = self[4: 20].replace(" ", "")
             self.pref = self[:4]
 
@@ -238,18 +358,7 @@ class SokkiaSDLFormat(ES):
 
     @classmethod
     def from_file_path(cls, path="/Users/andrewastakhov/Downloads/Telegram Desktop/LAHTA.txt"):
-        with open(path, "rb") as fl:
-            return cls(fl.read().decode(cls.encoding))
-
-    def __init__(self, text):
-
-        self.header = []
-        self.lines = []
-        self.text = text
-        self.parse()
-
-        super().__init__(seq=self.lines)
-        self.resolve_index()
+        return super().from_file_path(path)
 
     def parse(self):
         all_lines = self.text.replace("\r", "").split("\n")
@@ -304,22 +413,23 @@ class SokkiaSDLFormat(ES):
         self['tag'] = tag
         self['index'] = index
 
-    def colorise(self):
-        collections.Counter(self["tag"])
 
-    @property
-    def pts(self):
-        return list(self["point"])
+class CxmFormat(SurveyFormat):
+    class Line(SurveyFormat.Line):
 
-    def dump3dm(self):
-        collections.Counter(self["tag"])
-        pcl = rhino3dm.PointCloud()
-        for pt in self.pts:
-            attrs = rhino3dm.ObjectAttributes()
-            attrs.Name = pt.tag
+        def parse(self):
+            splitted=self.split(",")
+            self.tag=splitted[-1].replace(" ","")
+            self.data=np.asarray(self.parse_line(" ".join(splitted[:-1])), dtype=float).tolist()
 
-            for k, v in pt.userdata["properties"].items():
-                attrs.SetUserString(k, v)
-            rhino3dm.File3dmObject(rhino3dm.Point3d(pt.x, pt.y, pt.z), attrs)
-            pcl.Add()
-        return pcl
+        @property
+        def point(self):
+            return NamedPoint(*self.data, tag=self.tag)
+
+    def parse(self):
+        all_lines = self.text.replace("\r", "").split("\n")
+        del all_lines[-1]
+        self.lines = []
+        for i, ln in enumerate(all_lines):
+            self.lines.append(self.Line(ln))
+
