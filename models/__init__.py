@@ -424,6 +424,7 @@ class CxmFormat(SurveyFormat):
 
         @property
         def point(self):
+
             return NamedPoint(*self.data, tag=self.tag)
 
     def parse(self):
@@ -433,3 +434,8 @@ class CxmFormat(SurveyFormat):
         for i, ln in enumerate(all_lines):
             self.lines.append(self.Line(ln))
 
+
+    def categorise(self):
+        vals=[]
+        for k in collections.Counter(self["tag"]).keys():
+            self.search_from_key_value("tag", k)
