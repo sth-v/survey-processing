@@ -1,0 +1,19 @@
+query MyQuery2 {
+  survey_ceiling {
+    tag
+    toFloor {
+      entities {
+        connector {
+          name
+          offset
+          type
+        }
+        floor
+      }
+    }
+    x
+    y
+    z
+    update_at
+  }
+}

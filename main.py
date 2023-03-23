@@ -11,6 +11,7 @@ from __future__ import absolute_import, annotations
 
 import threading
 
+import models
 from mmcore.addons.rhino import rhino3dm
 import os
 import dotenv
@@ -35,12 +36,53 @@ class CxmServiceApi(APIRouter):
     ...
 
 
-app = CxmServiceApi(prefix=os.getenv("SERVICE_NAME"), on_startup=[lambda: x])
+app = CxmServiceApi(prefix="/survey", on_startup=[lambda: x])
+
 
 
 class CxmGeodesyService(RpycService, configs=CONFIGS):
     ...
+from fastapi import responses
 
+from typing import Annotated
+
+import httpx
+from fastapi import FastAPI, File, UploadFile
+from fastapi.responses import HTMLResponse
+
+
+
+
+
+
+import requests
+
+
+
+
+
+
+@app.post("/uploadfile")
+async def create_upload_file( file: UploadFile):
+    obj=models.CxmFormat(file.read())
+    model = obj.dump3dm()
+    obj.commit()
+    return responses.FileResponse(File(model))
+
+
+@app.get("/")
+async def main():
+    content = """
+
+<body>
+</form>
+<form action="/uploadfile/" enctype="multipart/form-data" method="post">
+<input name="file" type="file">
+<input type="submit">
+</form>
+</body>
+    """
+    return HTMLResponse(content=content)
 
 class ServiceController:
     @property
@@ -55,7 +97,6 @@ class ServiceController:
         self.name = os.getenv("SERVICE_NAME")
         for k, v in kwargs:
             self.server.__setattr__(k, v)
-        self.thread = threading.Thread(target=self, name=self.name)
 
     def __call__(self):
         try:
@@ -69,6 +110,7 @@ class ServiceController:
 
 if __name__ == "__main__":
     print(CONFIGS)
+    cntrl=ServiceController(CxmGeodesyService, host="0.0.0.0", port=4777)
     pprint.pprint(os.environ)
-    pprint.pprint(CxmGeodesyService.__dict__)
-    sys.exit(CxmGeodesyService.run())
+    cntrl()
+

@@ -248,10 +248,10 @@ class NamedPoint(Point, Entity):
     __match_args__ = "x", "y", "z"
     json = JsonView("x", "y", "z", "userdata")
     properties = UserDataProperties("tag")
-
-    def __init__(self, x=None, y=None, z=0, **kwargs):
+    floor:str="L2W"
+    def __init__(self, x=None, y=None, z=0, tag=None, index=0, **kwargs):
         super().__init__(x, y, z=z)
-        Entity.__init__(self, x, y, z=z, **kwargs)
+        Entity.__init__(self, x, y, z=z,tag=tag, index=index, **kwargs)
 
     @classmethod
     def encode(cls, self):
@@ -303,8 +303,22 @@ class SurveyFormat(ES, metaclass=ABCMeta):
         def point(self):
             return NamedPoint(*self.data, tag=self.tag)
 
-    def __init__(self, text):
+        @property
+        def point_dict(self):
+            if hasattr(self, "index"):
 
+                return {"x": self.point.x, "y": self.point.y,"z": self.point.z, "tag": self.point.tag,  "index": self.index, "floor_name": self.floor}
+            else:
+                return {"x": self.point.x, "y": self.point.y, "z": self.point.z, "tag": self.point.tag,
+                         "floor_name": self.floor}
+        def commit(self, obj):
+            "objects"
+
+            obj.mutation(variables=self.point_dict)
+
+    def __init__(self, text):
+        self.query = graphql_client.GQLReducedFileBasedQuery("models/temp/PointsDownloadMutation.graphql")
+        self.mutation = graphql_client.GQLReducedFileBasedQuery("models/temp/PointsUploadMutation.graphql")
         self.header = []
         self.lines = []
         self.text = text
@@ -312,10 +326,15 @@ class SurveyFormat(ES, metaclass=ABCMeta):
 
         super().__init__(seq=self.lines)
 
+
     @classmethod
     def from_file_path(cls, path):
         with open(path, "rb") as fl:
             return cls(fl.read().decode(cls.encoding))
+
+    def commit(self):
+        for s in self._seq:
+            s.commit()
 
     @abstractmethod
     def parse(self):
@@ -418,7 +437,7 @@ class CxmFormat(SurveyFormat):
     class Line(SurveyFormat.Line):
 
         def parse(self):
-            splitted=self.split(",")
+            splitted=self.replace("\r", "").split(",")
             self.tag=splitted[-1].replace(" ","")
             self.data=np.asarray(self.parse_line(" ".join(splitted[:-1])), dtype=float).tolist()
 
@@ -438,4 +457,4 @@ class CxmFormat(SurveyFormat):
     def categorise(self):
         vals=[]
         for k in collections.Counter(self["tag"]).keys():
-            self.search_from_key_value("tag", k)
+            vals.append(self.search_from_key_value("tag", k))

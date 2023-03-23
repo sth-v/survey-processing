@@ -1,0 +1,11 @@
+mutation MyMutation {
+  insert_survey_ceiling_one(object: {x: $x, y:  $y, z:  $z, tag: $tag, floor_name: $floor_name}) {
+    tag
+    index
+    id
+    update_at
+    x
+    y
+    z
+  }
+}
