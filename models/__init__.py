@@ -135,7 +135,7 @@ class Point(Matchable):
     cxmdata_keys = "X", "Y", "Z"
 
     def __init__(self, x, y, z=0.0):
-        super().__init__(x, y, z=z)
+        super().__init__(float(x), float(y), z=float(z))
 
     @property
     def xyz(self) -> tuple[float, float, float]:
@@ -251,14 +251,15 @@ class Point(Matchable):
         }
 
 
-class NamedPoint(Point, Entity):
-    __match_args__ = "x", "y", "z"
+class NamedPoint(Point):
+    __match_args__ = "x", "y", "z", "index", "tag"
     json = JsonView("x", "y", "z", "userdata")
-    properties = UserDataProperties("tag")
-    floor:str="L2W"
-    def __init__(self, x=None, y=None, z=0, tag=None, index=0, **kwargs):
-        super().__init__(x, y, z=z)
-        Entity.__init__(self, x, y, z=z,tag=tag, index=index, **kwargs)
+    properties = UserDataProperties("index", "tag")
+    floor: str = "L2W"
+
+    def __init__(self, index, x, y, z, tag):
+
+        Matchable.__init__(self, int(index), float(x),float(y), float(z), tag)
 
     @classmethod
     def encode(cls, self):
@@ -308,18 +309,18 @@ class SurveyFormat(ES, metaclass=ABCMeta):
 
         @property
         def point(self):
-            return NamedPoint(*self.data, tag=self.tag)
+            return NamedPoint(*self.data)
 
         @property
         def point_dict(self):
-            return {"x": self.point.x, "y": self.point.y,"z": self.point.z, "tag": self.point.tag,  "index": self.index, "floor_name": self.floor}
+            return {"index": self.point.index, "x": self.point.x, "y": self.point.y,"z": self.point.z, "tag": self.point.tag}
 
         def commit(self, obj):
             "objects"
-
-            obj.mutation(variables=self.point_dict)
+            return obj.mutation(variables=self.point_dict)
 
     def __init__(self, text):
+
         self.query = graphql_client.GQLReducedFileBasedQuery("models/temp/PointsDownloadMutation.graphql")
         self.mutation = graphql_client.GQLReducedFileBasedQuery("models/temp/PointsUploadMutation.graphql")
         self.header = []
@@ -329,7 +330,6 @@ class SurveyFormat(ES, metaclass=ABCMeta):
 
         super().__init__(seq=self.lines)
 
-
     @classmethod
     def from_file_path(cls, path):
         with open(path, "rb") as fl:
@@ -337,7 +337,7 @@ class SurveyFormat(ES, metaclass=ABCMeta):
 
     def commit(self):
         for s in self._seq:
-            s.commit()
+            s.commit(self)
 
     @abstractmethod
     def parse(self):
@@ -347,14 +347,18 @@ class SurveyFormat(ES, metaclass=ABCMeta):
         collections.Counter(self["tag"])
 
     def dump3dm(self):
+
+
+
         model = rhino3dm.File3dm()
         for pt in self["point"]:
             attrs = rhino3dm.ObjectAttributes()
+            print(pt)
             attrs.Name = pt.tag
-
+            
             for k, v in pt.userdata["properties"].items():
                 attrs.SetUserString(k, v)
-
+            
             model.Objects.Add(rhino3dm.Point(rhino3dm.Point3d(pt.x, pt.y, pt.z)), attrs)
         return model
 
@@ -363,10 +367,8 @@ class SurveyFormat(ES, metaclass=ABCMeta):
         return list(self["point"])
 
 
-
 class SokkiaSDLFormat(SurveyFormat):
     class Line(SurveyFormat.Line):
-
 
         def parse(self):
             self.raw_tag = self[4: 20].replace(" ", "")
@@ -440,14 +442,14 @@ class CxmFormat(SurveyFormat):
     class Line(SurveyFormat.Line):
 
         def parse(self):
-            splitted=self.replace("\r", "").split(",")
-            self.tag=splitted[-1].replace(" ","")
-            self.data=np.asarray(self.parse_line(" ".join(splitted[:-1])), dtype=float).tolist()
+            splitted = self.replace("\r", "").replace(" ", "").split(",")
+            self.data = list(splitted)
+            print(self.data)
 
         @property
         def point(self):
-
-            return NamedPoint(*self.data, tag=self.tag)
+            self.parse()
+            return NamedPoint(*self.data)
 
     def parse(self):
         all_lines = self.text.replace("\r", "").split("\n")
@@ -456,8 +458,7 @@ class CxmFormat(SurveyFormat):
         for i, ln in enumerate(all_lines):
             self.lines.append(self.Line(ln))
 
-
     def categorise(self):
-        vals=[]
-        for k in collections.Counter(self["tag"]).keys():
+        vals = []
+        for k in collections.Counter(ES(self["point"])["tag"]).keys():
             vals.append(self.search_from_key_value("tag", k))

@@ -1,5 +1,5 @@
-mutation MyMutation($x: float8 = "", $y: float8 = "", $z: float8 = "", $index: Int = 0, $tag: String = "test", $floor_name: String = "L2W") {
-  insert_survey_ceiling(objects: {floor_name: $floor_name, tag: $tag, index: $index, x: $x, y: $y, z: $z}) {
+mutation MyMutation( $index: Int = 0, $x: float8 = "", $y: float8= "", $z: float8= "", $tag: String = "test", $floor_name: String = "L2W") {
+  insert_survey_ceiling(objects: {index: $index,  x: $x, y: $y, z: $z, tag: $tag, floor_name: $floor_name}) {
     returning {
       floor_name
       id
