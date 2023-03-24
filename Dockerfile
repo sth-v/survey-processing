@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM sthv/mmcore:amd64
+FROM cr.yandex/crpfskvn79g5ht8njq0k/mmcore:latest
 WORKDIR /mmservice
 COPY --link . .
 ENV PYTHON="$MAMBA_ROOT_PREFIX/bin/python"

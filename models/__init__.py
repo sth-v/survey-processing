@@ -4,10 +4,12 @@ import collections
 from abc import ABCMeta, abstractmethod
 
 import compas
+import rpyc
 from compas import geometry
 import json
 import numpy as np
-import rhino3dm
+from mmcore.addons import ModuleResolver
+
 from OCC.Core.gp import gp_Pnt
 from mmcore.baseitems import Matchable, Entity
 from mmcore.baseitems.descriptors import UserDataProperties, JsonView
@@ -15,6 +17,11 @@ from mmcore.baseitems.descriptors import UserDataProperties, JsonView
 from jinja2.nativetypes import NativeEnvironment
 from mmcore.gql import client as graphql_client
 from mmcore.baseitems.descriptors import NoDataDescriptor
+
+with ModuleResolver() as mrslv:
+    import rhino3dm
+    rhino_conn = mrslv.conn
+import rhino3dm
 
 
 class QueryDescriptor(NoDataDescriptor):
@@ -305,12 +312,8 @@ class SurveyFormat(ES, metaclass=ABCMeta):
 
         @property
         def point_dict(self):
-            if hasattr(self, "index"):
+            return {"x": self.point.x, "y": self.point.y,"z": self.point.z, "tag": self.point.tag,  "index": self.index, "floor_name": self.floor}
 
-                return {"x": self.point.x, "y": self.point.y,"z": self.point.z, "tag": self.point.tag,  "index": self.index, "floor_name": self.floor}
-            else:
-                return {"x": self.point.x, "y": self.point.y, "z": self.point.z, "tag": self.point.tag,
-                         "floor_name": self.floor}
         def commit(self, obj):
             "objects"
 

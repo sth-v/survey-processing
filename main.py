@@ -31,12 +31,12 @@ from fastapi.background import BackgroundTasks
 
 from fastapi import APIRouter
 
-
+from fastapi import FastAPI
 class CxmServiceApi(APIRouter):
     ...
 
 
-app = CxmServiceApi(prefix="/survey", on_startup=[lambda: x])
+app = FastAPI()
 
 
 
@@ -63,11 +63,14 @@ import requests
 
 
 @app.post("/uploadfile")
-async def create_upload_file( file: UploadFile):
-    obj=models.CxmFormat(file.read())
-    model = obj.dump3dm()
+async def create_upload_file(file: UploadFile):
+
+    content=await file.read()
+    obj=models.CxmFormat(content.decode())
+
     obj.commit()
-    return responses.FileResponse(File(model))
+
+    return obj.query.render()
 
 
 @app.get("/")
@@ -98,6 +101,7 @@ class ServiceController:
         for k, v in kwargs:
             self.server.__setattr__(k, v)
 
+        self.thread = threading.Thread(target=lambda :sys.exit(self.server.run()), name="survey-service")
     def __call__(self):
         try:
             sys.exit(self.server.run())
@@ -108,9 +112,19 @@ class ServiceController:
             raise err
 
 
+    def run_thread(self):
+        self.thread.start()
+
+
+
 if __name__ == "__main__":
     print(CONFIGS)
     cntrl=ServiceController(CxmGeodesyService, host="0.0.0.0", port=4777)
-    pprint.pprint(os.environ)
-    cntrl()
+    cntrl.run_thread()
+    print(
+        "services running at:"
+        "*:4777 - rpyc"
+        "*5777 - uvicorn"
+    )
+    uvicorn.run("main:app",  host="0.0.0.0", port=5777)
 

@@ -128,7 +128,7 @@ class mmctl:
     def generate_rpyc_thread(self, name, **kwargs):
         if name is None:
             randomname.generate(sep="_")
-        self._rpyc_thread
+
         self._rpyc_thread = threading.Thread(target=self.MmSrever.run, name="mmcore_rpyc")
 
     @property
