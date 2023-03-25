@@ -7,5 +7,6 @@ pyyaml>=5.4.*
 pandas
 numpy
 scipy
+randomname
 git+https://github.com/sth-v/cxm_boto_client.git
 git+https://github.com/contextmachine/cxmdata.git

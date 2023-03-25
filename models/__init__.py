@@ -4,6 +4,7 @@ import collections
 from abc import ABCMeta, abstractmethod
 
 import compas
+import randomname
 import rpyc
 from compas import geometry
 import json
@@ -20,114 +21,15 @@ from mmcore.baseitems.descriptors import NoDataDescriptor
 
 with ModuleResolver() as mrslv:
     import rhino3dm
+
     rhino_conn = mrslv.conn
 import rhino3dm
-
-
-class QueryDescriptor(NoDataDescriptor):
-    _source = {}
-
-    @property
-    def query(self):
-        return graphql_client.GQLReducedFileBasedQuery(**self._source)
-
-    @query.setter
-    def query(self, v):
-        self._source = v
-
-    @abc.abstractmethod
-    def __get__(self, instance, owner):
-        ...
-
-
-class FileQueryDescriptor(QueryDescriptor):
-    def __init__(self, path):
-        super().__init__()
-        self.query = {"path": path}
-
-
-class ThreeTypeObjects(FileQueryDescriptor):
-    def __get__(self, instance, owner):
-        if instance is None:
-
-            return self.query(variables={"_target_type": owner.type})
-        else:
-            return self.query(variables={"_target_type": instance.type})
-
-
-class ThreeType(QueryDescriptor):
-    type = ""
-    objects = ThreeTypeObjects("temp/threejs_type_objects.graphql")
-
-    def __set_name__(self, owner, name):
-        super().__set_name__(owner, name)
-        self.type = name.capitalize()
-
-    def __get__(self, instance, owner):
-        return self
-
-
-class BufferGeometry(Matchable):
-    def __set__(self, instance, value):
-        ...
-
-    def __get__(self, instance, owner):
-        ...
-
-    def _object3d(self, instance):
-        return {
-            "uuid": "bf788959-f039-41e1-b48b-0702b822b9bf",
-            "type": self._object_type(instance),
-            "name": self._name(instance.name),
-            "userData": self._userdata(instance),
-            "layers": 1,
-            "matrix": self._matrix(instance),
-            "geometry": self._geometry_uuid(instance),
-            "material": self._material_uuid(instance),
-        }
-
-    def _matrix(self, instance):
-        if not hasattr(instance, "matrix"):
-            return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
-
-    def _geometry_uuid(self, instance):
-        if not hasattr(instance, "matrix"):
-            return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
-
-    def _material_uuid(self, instance):
-        if not hasattr(instance, "matrix"):
-            return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
-
-    def _userdata(self, instance):
-        return instance.userdata
-
-    def _geometry(self, instance):
-        return instance.name
-
-    def _name(self, instance):
-        return instance.name
-
-    def _object_type(self, instance):
-        return
+import cxm
+sess=cxm.S3Session(bucket="box.contextmachine.space")
 
 
 def is_integer_char(char):
-    return char in "0123456789"
-
-
-class Templateble(Matchable):
-
-    def __init_subclass__(cls, template="", **kwargs):
-        cls._jinjaenv = NativeEnvironment()
-
-        cls.template = cls._jinjaenv.from_string(cls.setup_temp(template))
-
-        super().__init_subclass__()
-
-    @classmethod
-    @abc.abstractmethod
-    def setup_temp(cls, temp) -> str:
-        ...
+    return str(char) in "0123456789"
 
 
 class Point(Matchable):
@@ -252,14 +154,14 @@ class Point(Matchable):
 
 
 class NamedPoint(Point):
-    __match_args__ = "x", "y", "z", "index", "tag"
-    json = JsonView("x", "y", "z", "userdata")
+    __match_args__ = "index", "x", "y", "z", "tag"
     properties = UserDataProperties("index", "tag")
     floor: str = "L2W"
 
     def __init__(self, index, x, y, z, tag):
-
-        Matchable.__init__(self, int(index), float(x),float(y), float(z), tag)
+        Matchable.__init__(self, index, x, y, z, tag.replace("\r", ""))
+        self.tag = tag
+        self.index = index
 
     @classmethod
     def encode(cls, self):
@@ -313,16 +215,25 @@ class SurveyFormat(ES, metaclass=ABCMeta):
 
         @property
         def point_dict(self):
-            return {"index": self.point.index, "x": self.point.x, "y": self.point.y,"z": self.point.z, "tag": self.point.tag}
+            dicts = {"index": self.point.index, "x": self.point.x, "y": self.point.y, "z": self.point.z,
+                     "tag": self.point.tag}
+            print(dicts)
+            return dicts
 
         def commit(self, obj):
             "objects"
             return obj.mutation(variables=self.point_dict)
 
+    @property
+    def query(self):
+        return graphql_client.GQLReducedQuery(sess.get_object(Key="share/configs/survey/PointsDownloadQuery.graphql")["Body"].read().decode())
+
+    @property
+    def mutation(self):
+        return graphql_client.GQLReducedQuery(sess.get_object(Key="share/configs/survey/PointsUploadMutation.graphql")["Body"].read().decode())
+
     def __init__(self, text):
 
-        self.query = graphql_client.GQLReducedFileBasedQuery("models/temp/PointsDownloadMutation.graphql")
-        self.mutation = graphql_client.GQLReducedFileBasedQuery("models/temp/PointsUploadMutation.graphql")
         self.header = []
         self.lines = []
         self.text = text
@@ -348,17 +259,15 @@ class SurveyFormat(ES, metaclass=ABCMeta):
 
     def dump3dm(self):
 
-
-
         model = rhino3dm.File3dm()
         for pt in self["point"]:
             attrs = rhino3dm.ObjectAttributes()
             print(pt)
             attrs.Name = pt.tag
-            
+
             for k, v in pt.userdata["properties"].items():
                 attrs.SetUserString(k, v)
-            
+
             model.Objects.Add(rhino3dm.Point(rhino3dm.Point3d(pt.x, pt.y, pt.z)), attrs)
         return model
 
@@ -440,6 +349,9 @@ class SokkiaSDLFormat(SurveyFormat):
 
 class CxmFormat(SurveyFormat):
     class Line(SurveyFormat.Line):
+        @property
+        def part(self):
+            return randomname.get_name()
 
         def parse(self):
             splitted = self.replace("\r", "").replace(" ", "").split(",")

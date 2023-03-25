@@ -32,16 +32,7 @@ from fastapi.background import BackgroundTasks
 from fastapi import APIRouter
 
 from fastapi import FastAPI
-class CxmServiceApi(APIRouter):
-    ...
 
-
-app = FastAPI()
-
-
-
-class CxmGeodesyService(RpycService, configs=CONFIGS):
-    ...
 from fastapi import responses
 
 from typing import Annotated
@@ -50,23 +41,25 @@ import httpx
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import HTMLResponse
 
-
-
-
-
-
 import requests
 
+class CxmServiceApi(APIRouter):
+    ...
 
+
+app = FastAPI()
+
+
+class CxmGeodesyService(RpycService, configs=CONFIGS):
+    ...
 
 
 
 
 @app.post("/uploadfile")
 async def create_upload_file(file: UploadFile):
-
-    content=await file.read()
-    obj=models.CxmFormat(content.decode())
+    content = await file.read()
+    obj = models.CxmFormat(content.decode())
 
     obj.commit()
 
@@ -87,6 +80,7 @@ async def main():
     """
     return HTMLResponse(content=content)
 
+
 class ServiceController:
     @property
     def cxmapi(self):
@@ -101,7 +95,8 @@ class ServiceController:
         for k, v in kwargs:
             self.server.__setattr__(k, v)
 
-        self.thread = threading.Thread(target=lambda :sys.exit(self.server.run()), name="survey-service")
+        self.thread = threading.Thread(target=lambda: sys.exit(self.server.run()), name="survey-service")
+
     def __call__(self):
         try:
             sys.exit(self.server.run())
@@ -111,20 +106,17 @@ class ServiceController:
         except Exception as err:
             raise err
 
-
     def run_thread(self):
         self.thread.start()
 
 
-
 if __name__ == "__main__":
     print(CONFIGS)
-    cntrl=ServiceController(CxmGeodesyService, host="0.0.0.0", port=4777)
+    cntrl = ServiceController(CxmGeodesyService, host="0.0.0.0", port=4777)
     cntrl.run_thread()
     print(
         "services running at:"
         "*:4777 - rpyc"
         "*5777 - uvicorn"
     )
-    uvicorn.run("main:app",  host="0.0.0.0", port=5777)
-
+    uvicorn.run("main:app", host="0.0.0.0", port=5777)

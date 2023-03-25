@@ -1,7 +1,7 @@
 query MyQuery2 {
   survey_ceiling {
     tag
-    toFloor {
+    floor {
       entities {
         connector {
           name
