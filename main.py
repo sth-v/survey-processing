@@ -17,6 +17,8 @@ import os
 import dotenv
 
 dotenv.load_dotenv("/mmcore/.env")
+CONFIGS = os.getenv("CONFIGS_URL")
+os.environ["RPYC_CONFIGS"] = CONFIGS
 import pprint
 from mmcore.services.service import RpycService
 import sys
@@ -24,7 +26,7 @@ from mmcore.services.client import get_connection_by_host_port
 
 # http://storage.yandexcloud.net/box.contextmachine.space/share/configs/configs.yaml
 
-CONFIGS = os.getenv("CONFIGS_URL")
+
 
 import uvicorn
 from fastapi.background import BackgroundTasks
@@ -32,7 +34,16 @@ from fastapi.background import BackgroundTasks
 from fastapi import APIRouter
 
 from fastapi import FastAPI
+class CxmServiceApi(APIRouter):
+    ...
 
+
+app = FastAPI()
+
+
+
+class CxmGeodesyService(RpycService, configs=CONFIGS):
+    ...
 from fastapi import responses
 
 from typing import Annotated
@@ -41,17 +52,14 @@ import httpx
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import HTMLResponse
 
+
+
+
+
+
 import requests
 
-class CxmServiceApi(APIRouter):
-    ...
 
-
-app = FastAPI()
-
-
-class CxmGeodesyService(RpycService, configs=CONFIGS):
-    ...
 
 
 
@@ -63,7 +71,7 @@ async def create_upload_file(file: UploadFile):
 
     obj.commit()
 
-    return obj.query.render()
+    return "OK"
 
 
 @app.get("/")
