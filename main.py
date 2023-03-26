@@ -10,15 +10,15 @@ UI does not get locked when script is running.
 from __future__ import absolute_import, annotations
 
 import threading
-
-import models
-from mmcore.addons.rhino import rhino3dm
 import os
 import dotenv
 
-dotenv.load_dotenv("/mmcore/.env")
+dotenv.load_dotenv(dotenv.find_dotenv(usecwd=True))
 CONFIGS = os.getenv("CONFIGS_URL")
 os.environ["RPYC_CONFIGS"] = CONFIGS
+
+import models
+from api import survey_api
 import pprint
 from mmcore.services.service import RpycService
 import sys
@@ -27,72 +27,23 @@ from mmcore.services.client import get_connection_by_host_port
 # http://storage.yandexcloud.net/box.contextmachine.space/share/configs/configs.yaml
 
 
-
 import uvicorn
-from fastapi.background import BackgroundTasks
 
-from fastapi import APIRouter
-
-from fastapi import FastAPI
-class CxmServiceApi(APIRouter):
-    ...
+from fastapi import responses
+from typing import Annotated
+import httpx
+from fastapi import FastAPI, File, UploadFile
+from fastapi.responses import HTMLResponse
+import requests
 
 
 app = FastAPI()
 
 
-
-class CxmGeodesyService(RpycService, configs=CONFIGS):
-    ...
-from fastapi import responses
-
-from typing import Annotated
-
-import httpx
-from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import HTMLResponse
-
-
-
-
-
-
-import requests
-
-
-
-
-
-
-@app.post("/uploadfile")
-async def create_upload_file(file: UploadFile):
-    content = await file.read()
-    obj = models.CxmFormat(content.decode())
-
-    obj.commit()
-
-    return "OK"
-
-
-@app.get("/")
-async def main():
-    content = """
-
-<body>
-</form>
-<form action="/uploadfile/" enctype="multipart/form-data" method="post">
-<input name="file" type="file">
-<input type="submit">
-</form>
-</body>
-    """
-    return HTMLResponse(content=content)
-
-
 class ServiceController:
     @property
     def cxmapi(self):
-        return app
+        return survey_api
 
     def __init__(self, server, host, port, **kwargs):
         super().__init__()
@@ -118,6 +69,12 @@ class ServiceController:
         self.thread.start()
 
 
+class CxmGeodesyService(RpycService, configs=CONFIGS):
+    ...
+
+
+app.mount("/api/cxm/v2/survey", survey_api)
+
 if __name__ == "__main__":
     print(CONFIGS)
     cntrl = ServiceController(CxmGeodesyService, host="0.0.0.0", port=4777)
@@ -127,4 +84,5 @@ if __name__ == "__main__":
         "*:4777 - rpyc"
         "*5777 - uvicorn"
     )
+
     uvicorn.run("main:app", host="0.0.0.0", port=5777)

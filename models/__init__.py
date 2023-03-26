@@ -22,7 +22,7 @@ from mmcore.baseitems.descriptors import NoDataDescriptor
 with ModuleResolver() as mrslv:
     import rhino3dm
 
-    rhino_conn = mrslv.conn
+
 import rhino3dm
 import cxm
 sess=cxm.S3Session(bucket="box.contextmachine.space")
@@ -159,7 +159,7 @@ class NamedPoint(Point):
     floor: str = "L2W"
 
     def __init__(self, index, x, y, z, tag):
-        Matchable.__init__(self, index, x, y, z, tag.replace("\r", ""))
+        Matchable.__init__(self, int(index), float(x),float(y), float(z), tag.replace("\r", ""))
         self.tag = tag
         self.index = index
 
@@ -258,17 +258,32 @@ class SurveyFormat(ES, metaclass=ABCMeta):
         collections.Counter(self["tag"])
 
     def dump3dm(self):
-
+        que2 = graphql_client.GQLReducedQuery("""
+        query MyQuery {
+          lht_triangles_transforms_by_pk(name: "geodesy") {
+            value
+          }
+        }
+        """)
+        transform_value = que2()["value"]
         model = rhino3dm.File3dm()
+        from mmcore.addons.rhino.native import utils
+        trx=utils.rhino_transform_from_matrix(np.asarray(transform_value).reshape((4,4)))
+
         for pt in self["point"]:
+
             attrs = rhino3dm.ObjectAttributes()
             print(pt)
             attrs.Name = pt.tag
 
+
             for k, v in pt.userdata["properties"].items():
                 attrs.SetUserString(k, v)
+            pt=rhino3dm.Point3d(pt.y, pt.x, pt.z) # It is ok!!!
+            pt.Transform( trx)
 
-            model.Objects.Add(rhino3dm.Point(rhino3dm.Point3d(pt.x, pt.y, pt.z)), attrs)
+            model.Objects.Add(rhino3dm.Point(pt), attrs)
+
         return model
 
     @property
