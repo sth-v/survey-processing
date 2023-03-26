@@ -26,7 +26,8 @@ with ModuleResolver() as mrslv:
 import rhino3dm
 import cxm
 sess=cxm.S3Session(bucket="box.contextmachine.space")
-
+ptq=graphql_client.GQLReducedQuery(sess.get_object(Key="share/configs/survey/PointsDownloadQuery.graphql")["Body"].read().decode())
+ptm=graphql_client.GQLReducedQuery(sess.get_object(Key="share/configs/survey/PointsUploadMutation.graphql")["Body"].read().decode())
 
 def is_integer_char(char):
     return str(char) in "0123456789"
@@ -226,12 +227,11 @@ class SurveyFormat(ES, metaclass=ABCMeta):
 
     @property
     def query(self):
-        return graphql_client.GQLReducedQuery(sess.get_object(Key="share/configs/survey/PointsDownloadQuery.graphql")["Body"].read().decode())
+        return ptq
 
     @property
     def mutation(self):
-        return graphql_client.GQLReducedQuery(sess.get_object(Key="share/configs/survey/PointsUploadMutation.graphql")["Body"].read().decode())
-
+        return ptm
     def __init__(self, text):
 
         self.header = []

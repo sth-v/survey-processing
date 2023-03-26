@@ -73,7 +73,7 @@ class CxmGeodesyService(RpycService, configs=CONFIGS):
     ...
 
 
-app.mount("/api/cxm/v2/survey", survey_api)
+app.mount("/cxm/api/v2/survey", survey_api)
 
 if __name__ == "__main__":
     print(CONFIGS)
@@ -85,4 +85,4 @@ if __name__ == "__main__":
         "*5777 - uvicorn"
     )
 
-    uvicorn.run("main:app", host="0.0.0.0", port=5777)
+    uvicorn.run("main:app", host="0.0.0.0", port=5777, workers=1)
